@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>상남자들의전투</title>
+    <link rel="icon" href="../noname.png">
+    <link href="../play.css" rel="stylesheet" type="text/css">
+    <script src="https://code.jquery.com/jquery-3.5.1.js" integrity="sha256-QWo7LDvxbWT2tbbQ97B53yJnYU3WhH/C8ycbRAkjPDc=" crossorigin="anonymous"></script>
+
+</head>
+<body onkeydown='onKeyDown()'>
+    <!-- <h4>본인 ID : {{session}}</h4> -->
+    <div class="wrapper">
+        <div id="color" style="display: none">{{session}}</div>
+        <h3 id="yourcolor" style="display: flex; justify-content: center;">너의색상●</h3>
+
+        <h1 id= "joincomment" style="text-align: center;">몸이 근질근질하군! 나도 참가하겠다!!</h1>
+        <div id = "imjoin" style="display: flex; justify-content: center;"><button type="button" onclick="imjoin()" style="text-align: center;">참가</button></div>
+        
+        <div id="field" class="center-screen">
+            <!-- <div id="player" class="circle"></div> -->
+            <!-- I'm in the center -->
+        </div>
+    </div>
+</body>
+</html>
+
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="../socket.io/socket.io.js"></script>
+<script>
+
+    const color = document.querySelector('#color').innerHTML
+    document.querySelector('#yourcolor').style.color = color
+
+    const id = color.substring(1)
+    console.log('id : ', id)
+
+    let is_start = false
+    let can_attack = true
+
+    const socket = io.connect('http://121.190.73.96:7007/play', {
+        path: '/socket.io'
+    })
+
+    socket.on('join', function (data) {
+        // 누군가 입장했을 때
+        // alert('애송이가 하나 들어왔다')
+    })
+
+    socket.on('exit', function (data) {
+        // 누군가 나갔을 때
+        // alert('겁쟁이가 하나 나갔다')
+    })
+
+    socket.on('imjoin', function (data) {
+        // 누군가 참가버튼을 눌렀을 때
+        const div = document.createElement('div')
+        div.id = `player${data.player}`
+        div.className = 'circle'
+        div.style.background = '#'+data.player
+
+        // $(`#player${data.player}`).css({"background" : data.player})
+        const field = document.querySelector('#field')
+        field.append(div)
+
+        const circles = document.querySelectorAll('.circle')
+
+        if(circles.length == 2){
+            const wrapper = document.querySelector('.wrapper')
+
+            document.querySelector('#joincomment').style.display = 'none'
+            document.querySelector('#imjoin').style.display = 'none'
+            const startComment = document.createElement('h1')
+            startComment.id = 'startComment'
+            startComment.innerHTML = '네놈이최강의전사임을증명해라!!!!!!'
+            startComment.style.textAlign = 'center'
+
+            const startGame = document.createElement('div')
+            const gameBtn = document.createElement('button')
+            gameBtn.innerHTML = '전투시작'
+            gameBtn.style.textAlign = 'center'
+            gameBtn.addEventListener('click', startFight)
+
+            startGame.id = 'startGame'
+            startGame.style.display = 'flex'
+            startGame.style.justifyContent = 'center'
+
+            startGame.append(gameBtn)
+            wrapper.append(startComment)
+            wrapper.append(startGame)
+        }
+    })
+
+    socket.on('startFight', function (data) {
+        // 게임시작 했을 때
+        let count = 5
+
+        const players = {
+            player1 : data.player1,
+            player2 : data.player2
+        }
+
+        console.log('게임 시작했다1')
+        countDown(count)
+
+        function countDown(count) {
+            if(count == 0){
+                document.querySelector('#countDown').innerHTML = '절대물러서지마라!!!!!!!'
+                console.log('게임시작!!!!')
+                is_start = true
+            }else{
+                if(count == 5){
+                    startSetting(players)
+                }
+                setTimeout(() => {
+                    console.log('게임시작 : ',count)
+                    document.querySelector('#countDown').innerHTML = count
+                    countDown(count-1)
+                }, 1000);
+            }
+        }
+    })
+    
+    socket.on('play', function (data) {
+        // 누군가 행동 했을 때
+        console.log(data, "누군가가 행동했다")
+
+        if(data.action == 'move'){
+            // 누군가 움직였을 때
+            let posiX = String(data.posix)+'px'
+            let posiY = String(data.posiy)+'px'
+
+            $(`#player${data.player}`).css({"left" : posiX})
+            $(`#player${data.player}`).css({"top" : posiY})
+        }
+
+        if(data.action == 'attack'){
+            // 누군가 공격했을 때
+                const rock = document.createElement('div')
+                const img = document.createElement('img')
+                img.src="../rock.png"
+                rock.append(img)
+
+                rock.id = `rock${data.player}`
+                rock.className = 'rock'
+
+                document.querySelector('#field').append(rock)
+                let posiX, posiY
+
+                if(data.keycode == 38){
+                    $(`#rock${data.player}`).css({"transform" : 'rotate(270deg)'})
+                    posiX = String(data.posix)+'px'
+                    posiY = String(data.posiy-30)+'px'
+                }
+                if(data.keycode == 40){
+                    $(`#rock${data.player}`).css({"transform" : 'rotate(90deg)'})
+                    posiX = String(data.posix)+'px'
+                    posiY = String(data.posiy+30)+'px'
+                }
+                if(data.keycode == 37){
+                    $(`#rock${data.player}`).css({"transform" : 'rotate(180deg)'})
+                    posiX = String(data.posix-30)+'px'
+                    posiY = String(data.posiy)+'px'
+                }
+                if(data.keycode == 39){
+                    $(`#rock${data.player}`).css({"transform" : 'rotate(0deg)'})
+                    posiX = String(data.posix+30)+'px'
+                    posiY = String(data.posiy)+'px'
+                }
+
+                // rock.style.left = posiX
+                // rock.style.top = posiY
+
+            $(`#rock${data.player}`).css({"left" : posiX})
+            $(`#rock${data.player}`).css({"top" : posiY})
+
+            setTimeout(() => {
+                document.querySelector('#field').removeChild(rock)
+                can_attack = true
+            }, 350);
+
+            if(data.is_hit){
+                // oppo가 공격 당했다.
+                const oppo = document.querySelector(`#${data.oppoID}`)
+                const hit_p = data.hit_position
+
+                if(hit_p =='up'){
+                    const changePositionY = parseInt(oppo.style.top.substring(0,oppo.style.top.length-2))-20+'px'
+                    $(`#${data.oppoID}`).css({"top" : changePositionY})
+                }
+                if(hit_p =='down'){
+                    const changePositionY = parseInt(oppo.style.top.substring(0,oppo.style.top.length-2))+20+'px'
+                    $(`#${data.oppoID}`).css({"top" : changePositionY})
+                }
+                if(hit_p =='left'){
+                    const changePositionX = parseInt(oppo.style.left.substring(0,oppo.style.left.length-2))-20+'px'
+                    $(`#${data.oppoID}`).css({"left" : changePositionX})
+                }
+                if(hit_p =='right'){
+                    const changePositionX = parseInt(oppo.style.left.substring(0,oppo.style.left.length-2))+20+'px'
+                    $(`#${data.oppoID}`).css({"left" : changePositionX})
+                }
+
+                const oppoBar = document.querySelector(`#${data.oppoID}B`)
+                oppoBar.removeChild(oppoBar.firstChild)
+                // console.log(oppoBar)
+
+                if(oppoBar.childNodes.length == 0){
+                    // 승자가 정해졌다.
+                    endSetting(data.oppoID)
+                }
+            }
+        }
+    })
+
+
+    function startSetting(players){
+        //  게임 시작 됐을 때 세팅 작업
+
+        document.querySelector('#startComment').style.display = 'none'
+        document.querySelector('#startGame').style.display = 'none'
+
+        const wrapper = document.querySelector('.wrapper')
+
+        const countDown = document.createElement('h2')
+        countDown.id = "countDown"
+        countDown.style.textAlign = 'center'
+        wrapper.append(countDown)
+
+        setHearts(players.player1,1)
+        setHearts(players.player2,2)
+
+        function setHearts(player, whoIS){
+            const heartSet = document.createElement('div')
+            heartSet.id = player + 'B'
+
+            let leftpx
+            if(whoIS ==1) leftpx = 100
+            if(whoIS ==2) leftpx = 500
+
+            let count = 0
+            const colorValue = player.substring(6)
+            while(count < 3){
+                const heart = document.createElement('div')
+                heart.className = 'heart'
+                heart.id = player + 'H'
+                heart.style.left = `${leftpx}px`
+                heart.style.backgroundColor = `#${colorValue}`
+
+                heartSet.append(heart)
+                count += 1
+                leftpx += 50
+                console.log('하트생성완료',count)
+            }
+
+            wrapper.append(heartSet)
+
+            let posiX, posiY
+            if(whoIS ==1){
+                posiX = 50
+                posiY = 200
+            }
+            if(whoIS == 2){
+                posiX = 450
+                posiY = 300
+            }
+
+            $(`#${player}`).css({"left" : posiX})
+            $(`#${player}`).css({"top" : posiY})
+            
+
+            // [22/01/04 승현] ==> 하트 만들기 위해 가상 선택자 변경 하려 했음. 보류.
+            // const hearts = document.querySelector(`#${player}H`)
+            // console.log(hearts)
+            // window.getComputedStyle(hearts, ':after').backgroundColor = `#${colorValue}`
+
+            // hearts.forEach(heart => {
+            //     // heart.style.backgroundColor = `#${colorValue}`
+            //     window.getComputedStyle(heart, ':after').backgroundColor = `
+            //     window.getComputedStyle(heart, ':before').backgroundColor = `#${colorValue}`
+            // });
+            // <== [22/01/04 승현]
+
+        }
+    }
+
+    function endSetting(oppo){
+        // 게임 끝났을 때 세팅 작업
+
+        if(id == oppo.substring(6)){
+            alert('너의 패배다 애송아.')
+        }else{
+            alert('너의 승리다 전사여!!')
+        }
+        
+        location.reload()
+
+        // document.querySelector('#startComment').style.display = 'block'
+        // document.querySelector('#startGame').style.display = 'flex'
+    }
+
+    function imjoin(){
+        if(document.querySelector(`#player${id}`))  alert('너는 이미 참가했다')
+        else{
+            axios.post('/room/{{room._id}}/play', {
+                action : 'imjoin'
+            })
+        }
+    }
+
+    function startFight(){
+        const circles = document.querySelectorAll('.circle')
+        let opponent
+
+        if(id == circles[0].id.substring(6))    opponent = circles[1]
+        else                                    opponent = circles[0]
+
+        axios.post('/room/{{room._id}}/play', {
+            action : 'startFight',
+            opponent : opponent.id
+        })
+    }
+
+    function onKeyDown(){
+        const keyCode = event.keyCode
+        console.log(keyCode)
+        let action = ""
+        // 위 아래 왼 오
+        if(keyCode == 87 || keyCode == 83 || keyCode == 65 || keyCode == 68) action = 'move'
+        if(keyCode == 38 || keyCode == 40 || keyCode == 37 || keyCode == 39) action = 'attack'
+
+
+        const player = document.querySelector(`#player${id}`)
+        let positionX = $(player).css("left")
+        let positionY = $(player).css("top")
+        positionX = positionX.substring(0,positionX.length-2)
+        positionY = positionY.substring(0,positionY.length-2)
+        positionX = parseInt(positionX)
+        positionY = parseInt(positionY)
+
+        if(is_start){
+    
+            if(action == 'move'){
+            axios.post('/room/{{room._id}}/play', {
+            // 행동 보내기
+            action : action,
+            keycode : keyCode,
+            x : positionX,
+            y : positionY,
+
+            message : '누군가 움직임을 시도했어!'
+            })
+            .then(() => {
+                    // 보낸 이후 행동
+                    // console.log('근데 범인은 너였어!')
+                })
+            .catch((err) => {
+                    console.error(err)
+                })
+        }
+
+        if(can_attack){
+            if(action == "attack"){
+                can_attack = false
+                const circles = document.querySelectorAll('.circle')
+                let opponent
+
+                if(circles.length == 2 ){
+                    if(id == circles[0].id.substring(6))    opponent = circles[1]
+                    else                                    opponent = circles[0]
+
+                    // console.log("내 id : ", id)
+                    // console.log("상대방 id : ", opponent.id)
+
+                    // console.log("상대방의 top 값 : ", opponent.style.top)
+                    // console.log("상대방의 left 값 : ", opponent.style.left)
+                    // console.log("내 top 값 : ", positionY)
+                    // console.log("내 lefg 값 : ", positionX)
+
+                    // if(keyCode == 38 || keyCode == 40 || keyCode == 37 || keyCode == 39) action = 'attack'
+
+                    // hitRange => 공격시 hit 되는 range
+
+                    const oppoX = parseInt(opponent.style.left.substring(0,opponent.style.left.length-2))
+                    const oppoY = parseInt(opponent.style.top.substring(0,opponent.style.top.length-2))
+
+                    let is_hit = false
+                    let hit_position ='';
+                    const oppoID = opponent.id
+                    
+                    if(keyCode == 38){
+                        const hitRangeX_min = oppoX-15
+                        const hitRangeX_max = oppoX+15
+                        const hitRangeY_max = oppoY+60
+
+                        if(hitRangeX_min <= positionX && hitRangeX_max >= positionX && oppoY < positionY && hitRangeY_max >= positionY){
+                            is_hit = true
+                            hit_position = 'up'
+                        }
+                    }
+                    if(keyCode == 40){
+                        const hitRangeX_min = oppoX-15
+                        const hitRangeX_max = oppoX+15
+                        const hitRangeY_max = oppoY-60
+
+                        if(hitRangeX_min <= positionX && hitRangeX_max >= positionX && oppoY > positionY && hitRangeY_max <= positionY){
+                            // hit.
+
+                            is_hit = true
+                            hit_position = 'down'
+                            console.log("아래 공격을 히트했다!")
+                        }
+                    }
+                    if(keyCode == 37){
+                        const hitRangeY_min = oppoY-15
+                        const hitRangeY_max = oppoY+15
+
+                        const hitRangeX_max = oppoX+50
+
+                        if(hitRangeY_min <= positionY && hitRangeY_max >= positionY && oppoX < positionX && hitRangeX_max >= positionX){
+                            
+                            is_hit = true
+                            hit_position = 'left'
+                            console.log("왼쪽 공격을 히트했다!")
+                        }
+                    }
+                    if(keyCode == 39){
+                        const hitRangeY_min = oppoY-15
+                        const hitRangeY_max = oppoY+15
+
+                        const hitRangeX_max = oppoX-50
+
+                        if(hitRangeY_min <= positionY && hitRangeY_max >= positionY && oppoX > positionX && hitRangeX_max <= positionX){
+                            
+                            is_hit = true
+                            hit_position = 'right'
+                            console.log("오른쪽 공격을 히트했다!")
+                        }
+                    }
+                    
+                axios.post('/room/{{room._id}}/play', {
+                    // 행동 보내기
+                    action : action,
+                    keycode : keyCode,
+                    x : positionX,
+                    y : positionY,
+                    is_hit : is_hit,
+                    hit_position : hit_position,
+                    oppoID : oppoID,
+                })
+                    .then(() => {
+
+                    })
+                    .catch((err) => {
+                        console.error(err)
+                    })
+                    }
+            }
+        }
+            
+        }
+
+        // console.log('키를 눌렀다')
+    }
+    
+
+</script>
